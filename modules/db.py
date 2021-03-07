@@ -8,13 +8,18 @@ logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-import sqlite3, json
+import sqlite3
+import json
+import os
 
 
 class DBHandler:
     def __init__(self):
         logging.debug("initiating DBHandler connection")
-        self.conn = sqlite3.connect("local_db\\autovalu.db")
+        path = os.path.join(
+            os.sep, "runnable_scripts", "Applications", "AutoValu", "local_db", "autovalu.db"
+        )
+        self.conn = sqlite3.connect(path)
         self.c = self.conn.cursor()
         self.time = None
 
