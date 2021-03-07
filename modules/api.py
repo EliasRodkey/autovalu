@@ -398,7 +398,7 @@ class DataValues:
 
     def calculate_beta(self):
         logging.info("calculating beta...")
-        covariance = DataValues.calc_covariance(self.stock_data, self.NASDAQ_data)
+        covariance = self.calc_covariance(self.stock_data, self.NASDAQ_data)
         variance = DataValues.calc_variance(self.NASDAQ_data)
         beta = covariance / variance
         return round(beta, 2)
@@ -409,15 +409,12 @@ class DataValues:
             tax_rate.append(self.taxes[i] / self.ebit[i])
         return tax_rate
 
-    @staticmethod
-    def calc_covariance(array1, array2):
+    def calc_covariance(self, array1, array2):
         combined = (array1, array2)
         if len(array1) != len(array2):
-            combined = DataValues.make_equal_length(array1, array2)
-            print(len(combined[0]))
-            print(len(combined[1]))
+            array1, array2 = self.make_equal_length(array1, array2)
 
-        len_array = len(combined[0]) if len(combined[0]) == combined[1] else None
+        len_array = len(array1) if len(array1) == len(array2) else None
         if len_array == None:
             logging.critical("arrays of unequal length, cannot calculate beta")
         array1_avg = DataValues.list_average(combined[0], "last")
@@ -434,30 +431,48 @@ class DataValues:
         covariance = total / (len_array - 1)
         return covariance
 
-    @staticmethod
-    def make_equal_length(security_array, index_array):
-        if len(security_array) > len(index_array):
-            long_array = security_array
-            short_array = index_array
-            index_longer = False
-        elif len(security_array) < len(index_array):
-            long_array = index_array
-            short_array = security_array
-            index_longer = True
-        else:
-            return (security_array, index_array)
-            
-        new_long = []    
-        for date in short_array:
-            for day in long_array:
-                if day["date"] == date["date"]:
-                    new_long.append(day)
-                    break
+    def make_equal_length(self, security_array, index_array):
+        dictionary = self.make_dictionary(security_array)
+        new_dictionary = self.update_dictionary(dictionary, index_array)
+        security_array, index_array = self.remove_unique_dates(
+            new_dictionary, security_array, index_array
+        )
+        import pprint
+        pprint.pprint(zip(security_array, index_array))
+        return security_array, index_array
 
-        if index_longer:
-            return (new_long, short_array)
-        else:
-            return (short_array, new_long)
+    @staticmethod
+    def make_dictionary(array_of_json_1):
+        dictionary = {}
+        for i, obj in enumerate(array_of_json_1):
+            dictionary[obj["date"]] = {"inst" : 1, "index_1" : i}
+        return dictionary
+
+    @staticmethod
+    def update_dictionary(dictionary, array_of_json_2):
+        for i, obj in enumerate(array_of_json_2):
+            date = obj["date"]
+            if date in dictionary.keys():
+                dictionary[date]["inst"] += 1
+                dictionary[date]["index_2"] = i
+            else:
+                dictionary[date] = {"inst" : 1, "index_2" : i}
+        return dictionary
+    
+    @staticmethod
+    def remove_unique_dates(dictionary, array_1, array_2):
+        for date in dictionary:
+            date = dictionary[date]
+            if date["inst"] == 1:
+                try:
+                    i = date["index_1"]
+                    del array_1[i]
+                except KeyError:
+                    i = date["index_2"]
+                    del array_2[i]
+            else:
+                pass
+        return array_1, array_2
 
     @staticmethod
     def calc_variance(data_array):
