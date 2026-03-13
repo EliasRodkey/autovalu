@@ -157,30 +157,50 @@ class Controller:
             self.view.error("Please enter a search into the search bar")
             return
         logging.info("search query : {}".format(query))
-        self.load = False
-        in_db = self.model.db.load_searches(query)
-        if in_db == None:
-            try:
-                self.search_results = self.api_obj.auto_complete_call(query)
-            except Exception:
-                self.view.error("Could not reach the API.")
-                return
-            self.model.db.make_search_inst(query, self.search_results)
-        else:
-            self.api_obj.search_results = in_db
-            self.search_results = in_db
 
-        if len(self.search_results) == 0:
+        # --- DEMO: The Morningstar API no longer exists. The block below (commented out)
+        # --- originally checked the DB cache and fell back to a live API call.
+        # --- It is preserved here for reference.
+        #
+        # self.load = False
+        # in_db = self.model.db.load_searches(query)
+        # if in_db == None:
+        #     try:
+        #         self.search_results = self.api_obj.auto_complete_call(query)
+        #     except Exception:
+        #         self.view.error("Could not reach the API.")
+        #         return
+        #     self.model.db.make_search_inst(query, self.search_results)
+        # else:
+        #     self.api_obj.search_results = in_db
+        #     self.search_results = in_db
+        #
+        # if len(self.search_results) == 0:
+        #     self.view.error(
+        #         "No search results found for {}\nPlease try another search".format(query)
+        #     )
+        #     return
+        # self.pages[self.view.search_page.__name__].display_search_results(
+        #     self.search_results
+        # )
+        # logging.debug("search_results : {}".format(self.search_results))
+
+        # --- DEMO: Forcibly load all stored evaluations from the local database and
+        # --- display them in the search table regardless of what was searched.
+        # --- Run seed_db.py first to populate the database with Apple (AAPL) data.
+        history = self.model.db.all_past_inst()
+        if not history:
             self.view.error(
-                "No search results found for {}\nPlease try another search".format(
-                    query
-                )
+                "No demo data found. Please run seed_db.py to populate the database."
             )
             return
+        self.load = True
+        self.search_results = [record[1] for record in history]
+        time_stamps = [record[0] for record in history]
         self.pages[self.view.search_page.__name__].display_search_results(
-            self.search_results
+            self.search_results, time_stamps=time_stamps
         )
-        logging.debug("search_results : {}".format(self.search_results))
+        logging.debug("search_results (demo) : {}".format(self.search_results))
 
     def search_history(self, query: str) -> None:
         """
@@ -210,16 +230,21 @@ class Controller:
         """
         in_db = self.model.db.load_profile(self.chosen_company["securityId"])
         if in_db == None:
-            try:
-                self.company_profile = self.api_obj.company_profile_call(
-                    self.chosen_company["mic"], self.chosen_company["ticker"]
-                )
-            except Exception:
-                self.view.error("Could not fetch company profile.")
-                return
-            self.model.db.make_profile_inst(
-                self.chosen_company["securityId"], self.company_profile
-            )
+            # --- DEMO: The profile for this company is not in the local database.
+            # --- The original API call that would fetch it is no longer available.
+            # --- Original code (preserved for reference):
+            # try:
+            #     self.company_profile = self.api_obj.company_profile_call(
+            #         self.chosen_company["mic"], self.chosen_company["ticker"]
+            #     )
+            # except Exception:
+            #     self.view.error("Could not fetch company profile.")
+            #     return
+            # self.model.db.make_profile_inst(
+            #     self.chosen_company["securityId"], self.company_profile
+            # )
+            self.view.error("Profile not in database. Please run seed_db.py first.")
+            return
         else:
             self.api_obj.company_profile = in_db
             self.company_profile = in_db
@@ -260,17 +285,22 @@ class Controller:
         """
         in_db = self.model.db.load_data(self.data_access_time)
         if in_db == None:
-            try:
-                self.api_obj.query_morningstar(self.chosen_company)
-            except Exception:
-                self.view.error("Could not fetch financial data.")
-                return
-            self.company_data = self.model.gather(
-                self.chosen_company, self.api_obj.data_object()
-            )
-            self.model.db.make_data_inst(
-                self.chosen_company, self.api_obj.data_object(), self.inputs
-            )
+            # --- DEMO: Financial data for this timestamp is not cached locally.
+            # --- The original API call that would fetch it is no longer available.
+            # --- Original code (preserved for reference):
+            # try:
+            #     self.api_obj.query_morningstar(self.chosen_company)
+            # except Exception:
+            #     self.view.error("Could not fetch financial data.")
+            #     return
+            # self.company_data = self.model.gather(
+            #     self.chosen_company, self.api_obj.data_object()
+            # )
+            # self.model.db.make_data_inst(
+            #     self.chosen_company, self.api_obj.data_object(), self.inputs
+            # )
+            self.view.error("Data not in database. Please run seed_db.py first.")
+            return
         else:
             data = in_db["company_data"]
             self.company_data = self.model.gather(self.chosen_company, data)
