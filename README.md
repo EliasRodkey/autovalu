@@ -98,4 +98,4 @@ As an early project, AutoValu has several known shortcomings:
   test coverage.
 - **API dependency** — The application requires an active RapidAPI subscription
   to the Morningstar API. If the key expires or the endpoint changes, data
-  fetching will fail.
+  fetching will fail. The API used is also no longer available on RapidAPI.
