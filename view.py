@@ -191,7 +191,7 @@ class LoginPage(QtWidgets.QWidget):
 
         # login button # TODO: make hover over change color
         self.login_button = QtWidgets.QPushButton(self)
-        self.login_button.setGeometry(QtCore.QRect(1062.5, 450, 150, 40))
+        self.login_button.setGeometry(QtCore.QRect(1062, 450, 150, 40))
         self.login_button.setStyleSheet(self.STYLE.button_style)
         self.login_button.setObjectName("login_button")
         self.login_button.clicked.connect(

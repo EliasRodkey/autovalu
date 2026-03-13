@@ -834,3 +834,20 @@ class DataValues:
             num = item[dict_value]
             total += num
         return total / len(li)
+
+
+if __name__ == "__main__":
+    url = f"https://morningstar1.p.rapidapi.com/companies/get-company-profile"
+    querystring = {"Ticker": str("MDT").upper(), "Mic": str("XNAS").upper()}
+    response = requests.request(
+        "GET", url, headers=headers, params=querystring
+    ).content
+    data = json.loads(response)
+    # results = (
+    #     data["responseStatus"]
+    #     if (data["responseStatus"] != None)
+    #     else data["result"]
+    # )
+    
+    from pprint import pprint
+    pprint(data)

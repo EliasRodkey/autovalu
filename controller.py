@@ -160,7 +160,11 @@ class Controller:
         self.load = False
         in_db = self.model.db.load_searches(query)
         if in_db == None:
-            self.search_results = self.api_obj.auto_complete_call(query)
+            try:
+                self.search_results = self.api_obj.auto_complete_call(query)
+            except Exception:
+                self.view.error("Could not reach the API.")
+                return
             self.model.db.make_search_inst(query, self.search_results)
         else:
             self.api_obj.search_results = in_db
@@ -206,9 +210,13 @@ class Controller:
         """
         in_db = self.model.db.load_profile(self.chosen_company["securityId"])
         if in_db == None:
-            self.company_profile = self.api_obj.company_profile_call(
-                self.chosen_company["mic"], self.chosen_company["ticker"]
-            )
+            try:
+                self.company_profile = self.api_obj.company_profile_call(
+                    self.chosen_company["mic"], self.chosen_company["ticker"]
+                )
+            except Exception:
+                self.view.error("Could not fetch company profile.")
+                return
             self.model.db.make_profile_inst(
                 self.chosen_company["securityId"], self.company_profile
             )
@@ -252,7 +260,11 @@ class Controller:
         """
         in_db = self.model.db.load_data(self.data_access_time)
         if in_db == None:
-            self.api_obj.query_morningstar(self.chosen_company)
+            try:
+                self.api_obj.query_morningstar(self.chosen_company)
+            except Exception:
+                self.view.error("Could not fetch financial data.")
+                return
             self.company_data = self.model.gather(
                 self.chosen_company, self.api_obj.data_object()
             )
