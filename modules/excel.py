@@ -1,6 +1,21 @@
 #! python3
-# excel_module.py - contains tools to create excel file that contains editable evaluation summary
+"""
+excel.py - Excel workbook export module for AutoValu.
+
+Builds a formatted multi-sheet Excel workbook summarizing a DCF evaluation,
+including an editable model assumptions sheet and per-evaluation DCF detail sheets.
+
+Classes:
+    ExcelStyle: Defines reusable cell styling attributes (formats, fonts, borders, colors).
+    ExcelFunctions: Base class with helper methods for writing and styling openpyxl worksheets.
+    MakeWB: Assembles and saves the complete evaluation workbook.
+
+Variables:
+    STYLE (ExcelStyle): Module-level style instance shared across all workbook builders.
+"""
+
 import logging
+from typing import TYPE_CHECKING
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -9,12 +24,41 @@ logging.basicConfig(
 from openpyxl.workbook import Workbook
 from openpyxl import load_workbook
 from openpyxl.styles import *
+from openpyxl.worksheet.worksheet import Worksheet
 import openpyxl.utils as utils
 import os
 
-# Styling Class
+if TYPE_CHECKING:
+    from modules.evaluation import Evaluation
+
+
 class ExcelStyle:
-    def __init__(self):
+    """
+    Defines reusable cell styling attributes for openpyxl worksheets.
+
+    Attributes:
+        dollar (str): Number format string for dollar values with two decimal places.
+        big_number (str): Number format string for large integers with comma separators.
+        accounting (str): Accounting number format string with red negatives.
+        percent (str): Number format string for percentage values.
+        center_justify (dict): Alignment kwargs for centered horizontal and vertical alignment.
+        top_justify (dict): Alignment kwargs for top-left alignment with word wrap.
+        title_font (dict): Font kwargs for title-sized text (18pt).
+        summary_font (dict): Font kwargs for summary-sized text (16pt).
+        desc_font (dict): Font kwargs for description-sized text (12pt).
+        thick_border (dict): Named Border objects using medium-weight sides.
+        thin_border (dict): Named Border objects using thin-weight sides.
+        light_blue (PatternFill): Light blue solid cell fill.
+        title_blue (PatternFill): Darker blue solid cell fill for title rows.
+        light_grey (PatternFill): Light grey solid cell fill.
+        light_green (PatternFill): Light green solid cell fill.
+
+    Methods:
+        __init__: Initialize all style attribute values.
+    """
+
+    def __init__(self) -> None:
+        """Initialize all cell format, font, border, and fill style attributes."""
         # cell type attrs
         self.dollar = """"$"#,##0.00_-"""
         self.big_number = "#,##0"
@@ -121,31 +165,59 @@ class ExcelStyle:
 
 STYLE = ExcelStyle()
 
-# contains base funcitons for writing data to excel
-# TODO: connect save_wb method to asksavefile thing in tkinter
+
 class ExcelFunctions:
-    def __init__(self, save_path):
+    """
+    Base class providing helper methods for writing and styling openpyxl worksheets.
+
+    Attributes:
+        wb (Workbook): The active openpyxl workbook.
+        ws (Worksheet): The initially active worksheet.
+        path (str): File path where the workbook will be saved.
+
+    Methods:
+        __init__: Create a new workbook and store the save path.
+        save_wb: Save the workbook to self.path.
+        write_cells: Write a 2D data array into a worksheet cell range (static).
+        set_cell_size: Auto-size column widths based on cell content (static).
+        merge_center: Merge a list of cell ranges (static).
+        set_cell_type: Apply a number format string to cell ranges (static).
+        set_cell_justify: Apply an alignment to cells or cell ranges (static).
+        set_font_size: Apply a font to cells or cell ranges (static).
+        set_borders: Apply a border to cells or cell ranges (static).
+        outside_border: Apply context-aware outer borders to a list of ranges (static).
+        set_cell_color: Apply a fill color to cells or cell ranges (static).
+    """
+
+    # TODO: connect save_wb method to asksavefile thing in tkinter
+    def __init__(self, save_path: str=os.path.join(os.getcwd(), "data", "evaluations")) -> None:
+        """
+        Create a new workbook and store the target save path.
+
+        Args:
+            save_path (str): File system path where the workbook will be saved.
+        """
         ExcelStyle.__init__(self)
         # Create excel workbook
         self.wb = Workbook()
         self.ws = self.wb.active
         self.path = save_path
 
-    def save_wb(self):
-        # TODO: there is a better way to do this where you change directories twice
-        os.chdir(
-            os.path.join(
-                "..", "..", "..", "..", "..", "..", "..", "..", "..", "..", ".."
-            )
-        )
-        os.chdir(
-            os.path.abspath(os.path.join("C:", "Users", "eliro", "OneDrive", "Desktop"))
-        )
+    def save_wb(self) -> None:
+        """Save the workbook to self.path."""
         logging.info("saving {} to {}".format(self.path, os.getcwd()))
         self.wb.save(self.path)
 
     @staticmethod
-    def write_cells(sheet, cell_range, data):
+    def write_cells(sheet: Worksheet, cell_range: list[str], data: list[list]) -> None:
+        """
+        Write a 2D data array into a worksheet cell range.
+
+        Args:
+            sheet (Worksheet): The worksheet to write into.
+            cell_range (list[str]): Two-element list of [start_cell, end_cell] (e.g. ['A1', 'C3']).
+            data (list[list]): 2D list of values whose dimensions must match the cell range.
+        """
         # logging.debug('mapping data: {} to cells {} through {}'.format(data, cell_range[0], cell_range[1]))
         cells = sheet[cell_range[0] : cell_range[1]]
         if len(cells) != len(data):
@@ -171,7 +243,15 @@ class ExcelFunctions:
                     print(error)
 
     @staticmethod
-    def set_cell_size(sheet, data, start_column):
+    def set_cell_size(sheet: Worksheet, data: list[list], start_column: str) -> None:
+        """
+        Auto-size column widths based on the longest value in each column of data.
+
+        Args:
+            sheet (Worksheet): The worksheet whose column widths to adjust.
+            data (list[list]): 2D list of cell values used to measure content width.
+            start_column (str): Column letter where the data begins (e.g. 'B').
+        """
         start_index = utils.column_index_from_string(start_column)
         column_widths = []
         for row in data:
@@ -198,12 +278,27 @@ class ExcelFunctions:
             ].width = column_width
 
     @staticmethod
-    def merge_center(sheet, cell_ranges):
+    def merge_center(sheet: Worksheet, cell_ranges: list[str]) -> None:
+        """
+        Merge each cell range in the provided list.
+
+        Args:
+            sheet (Worksheet): The worksheet containing the cells to merge.
+            cell_ranges (list[str]): List of range strings to merge (e.g. ['A1:C1']).
+        """
         for cell_range in cell_ranges:
             sheet.merge_cells(cell_range)
 
     @staticmethod
-    def set_cell_type(sheet, cell_ranges, form):
+    def set_cell_type(sheet: Worksheet, cell_ranges: list[list[str]], form: str) -> None:
+        """
+        Apply a number format string to one or more cell ranges.
+
+        Args:
+            sheet (Worksheet): The worksheet containing the target cells.
+            cell_ranges (list[list[str]]): List of [start_cell, end_cell] pairs.
+            form (str): openpyxl number format string (e.g. STYLE.percent).
+        """
         for ranges in cell_ranges:
             cells = sheet[ranges[0] : ranges[1]]
             for row in cells:
@@ -211,7 +306,15 @@ class ExcelFunctions:
                     cell.number_format = form
 
     @staticmethod
-    def set_cell_justify(sheet, cells, justify):
+    def set_cell_justify(sheet: Worksheet, cells: list[list[str]], justify: dict) -> None:
+        """
+        Apply an alignment to individual cells or cell ranges.
+
+        Args:
+            sheet (Worksheet): The worksheet containing the target cells.
+            cells (list[list[str]]): List of single-cell [cell] or range [start, end] pairs.
+            justify (dict): Alignment kwargs dict (e.g. STYLE.center_justify).
+        """
         for item in cells:
             if len(item) > 1:
                 cell_range = sheet[item[0] : item[1]]
@@ -222,7 +325,15 @@ class ExcelFunctions:
                 sheet[item[0]].alignment = Alignment(**justify)
 
     @staticmethod
-    def set_font_size(sheet, cells, font):
+    def set_font_size(sheet: Worksheet, cells: list[list[str]], font: dict) -> None:
+        """
+        Apply a font to individual cells or cell ranges.
+
+        Args:
+            sheet (Worksheet): The worksheet containing the target cells.
+            cells (list[list[str]]): List of single-cell [cell] or range [start, end] pairs.
+            font (dict): Font kwargs dict (e.g. STYLE.title_font).
+        """
         for item in cells:
             if len(item) > 1:
                 cell_range = sheet[item[0] : item[1]]
@@ -233,7 +344,15 @@ class ExcelFunctions:
                 sheet[item[0]].font = Font(**font)
 
     @staticmethod
-    def set_borders(sheet, cells, border):
+    def set_borders(sheet: Worksheet, cells: list[list[str]], border: Border) -> None:
+        """
+        Apply a border to individual cells or cell ranges.
+
+        Args:
+            sheet (Worksheet): The worksheet containing the target cells.
+            cells (list[list[str]]): List of single-cell [cell] or range [start, end] pairs.
+            border (Border): openpyxl Border object to apply (e.g. STYLE.thick_border['all']).
+        """
         for item in cells:
             if len(item) > 1:
                 cell_range = sheet[item[0] : item[1]]
@@ -244,7 +363,18 @@ class ExcelFunctions:
                 sheet[item[0]].border = border
 
     @staticmethod
-    def outside_border(sheet, cell_ranges, bordert):
+    def outside_border(sheet: Worksheet, cell_ranges: list[list[str]], bordert: dict) -> None:
+        """
+        Apply context-aware outer borders to a list of cell ranges.
+
+        Each cell in a range receives the appropriate directional border segment
+        (corner, edge, or interior) based on its position within the range.
+
+        Args:
+            sheet (Worksheet): The worksheet containing the target cells.
+            cell_ranges (list[list[str]]): List of single-cell [cell] or range [start, end] pairs.
+            bordert (dict): Border segment dict (e.g. STYLE.thick_border or STYLE.thin_border).
+        """
         for rang in cell_ranges:
             if len(rang) == 1:
                 sheet[rang[0]].border = bordert["all"]
@@ -289,7 +419,15 @@ class ExcelFunctions:
                                     cell.border = bordert["bottom"]
 
     @staticmethod
-    def set_cell_color(sheet, cells, color):
+    def set_cell_color(sheet: Worksheet, cells: list[list[str]], color: PatternFill) -> None:
+        """
+        Apply a fill color to individual cells or cell ranges.
+
+        Args:
+            sheet (Worksheet): The worksheet containing the target cells.
+            cells (list[list[str]]): List of single-cell [cell] or range [start, end] pairs.
+            color (PatternFill): openpyxl PatternFill to apply (e.g. STYLE.light_blue).
+        """
         for item in cells:
             if len(item) > 1:
                 cell_range = sheet[item[0] : item[1]]
@@ -301,7 +439,41 @@ class ExcelFunctions:
 
 
 class MakeWB(ExcelFunctions):
-    def __init__(self, eval_objects, save_path):
+    """
+    Assembles and saves a formatted multi-sheet Excel evaluation workbook.
+
+    Creates three sheet types per instantiation:
+    - A summary sheet with a high-level valuation verdict across all three evaluations.
+    - A model assumptions sheet with editable input cells linked to the DCF sheets.
+    - One DCF detail sheet per Evaluation instance (Historical, Recent, Custom).
+
+    Attributes:
+        eval (list[Evaluation]): The three Evaluation instances to export.
+        summary_sheet (Worksheet): The high-level valuation summary sheet.
+        input_sheet (Worksheet): The editable model assumptions sheet.
+        eval_sheet (Worksheet): The most recently created DCF detail sheet.
+
+    Methods:
+        __init__: Build and style all workbook sheets, then save.
+        update_fair_price: Link fair price formula cells between DCF and summary/input sheets.
+        build_summary: Write the summary sheet data template.
+        build_inputs: Write the model assumptions sheet data template.
+        build_eval: Write a full DCF detail sheet for one Evaluation instance.
+        make_eval_sheets: Create and populate one DCF sheet per Evaluation.
+        style_summary: Apply all formatting to the summary sheet.
+        style_inputs: Apply all formatting to the model assumptions sheet.
+        style_eval: Apply all formatting to a DCF detail sheet.
+    """
+
+    def __init__(self, eval_objects: list["Evaluation"], save_path: str) -> None:
+        """
+        Build and style all workbook sheets, then save the file.
+
+        Args:
+            eval_objects (list[Evaluation]): Three Evaluation instances in order
+                [Custom, Recent, Historical].
+            save_path (str): File system path where the workbook will be saved.
+        """
         ExcelFunctions.__init__(self, save_path)
         self.eval = eval_objects
         self.summary_sheet = self.wb.create_sheet(
@@ -315,7 +487,15 @@ class MakeWB(ExcelFunctions):
         self.style_summary()
         self.style_inputs()
 
-    def update_fair_price(self, valuation, sheet_name, count):
+    def update_fair_price(self, valuation: "Evaluation", sheet_name: str, count: int) -> None:
+        """
+        Link fair price formula cells in the input and summary sheets to a DCF sheet.
+
+        Args:
+            valuation (Evaluation): The Evaluation instance whose sheet is being linked.
+            sheet_name (str): The name of the DCF detail sheet to reference.
+            count (int): 1-based index of this evaluation (used for cell offset calculations).
+        """
         self.input_sheet["C{}".format((count * 13) + 6)].value = "={}!$G$43".format(
             sheet_name
         )
@@ -336,7 +516,13 @@ class MakeWB(ExcelFunctions):
         ].value = "={}!$C$42".format(sheet_name)
         self.save_wb()
 
-    def build_summary(self, sheet):
+    def build_summary(self, sheet: Worksheet) -> None:
+        """
+        Write the summary sheet data template and save the workbook.
+
+        Args:
+            sheet (Worksheet): The summary worksheet to populate.
+        """
         sheet["B3"].value = "Evaluation Summary"
         self.SUMMARY_TEMPLATE = [
             ["Company Name", "", "", "", "", "", "", "Mic", "Ticker", "Last Price"],
@@ -431,7 +617,12 @@ class MakeWB(ExcelFunctions):
         self.set_cell_size(sheet, self.SUMMARY_TEMPLATE, "B")
         self.save_wb()
 
-    def build_inputs(self, sheet):
+    def build_inputs(self, sheet: Worksheet) -> None:
+        """Write the model assumptions sheet data template and save the workbook.
+
+        Args:
+            sheet (Worksheet): The model assumptions worksheet to populate.
+        """
         self.INPUTS_TEMPLATE = [
             ["Evaluation Inputs", "", "", "", "", "", "", "", "", "", "", ""],
             ["", "", "", "", "", "", "", "", "", "", "", ""],
@@ -598,7 +789,15 @@ class MakeWB(ExcelFunctions):
         self.set_cell_size(sheet, self.INPUTS_TEMPLATE, "B")
         self.save_wb()
 
-    def build_eval(self, sheet, valuation, count):
+    def build_eval(self, sheet: Worksheet, valuation: "Evaluation", count: int) -> None:
+        """
+        Write a full DCF detail sheet for a single Evaluation instance.
+
+        Args:
+            sheet (Worksheet): The DCF detail worksheet to populate.
+            valuation (Evaluation): The Evaluation instance providing all model values.
+            count (int): 1-based index of this evaluation among the three being exported.
+        """
         self.EVAL_TEMPLATE = [
             [
                 "{} Evaluation".format(valuation.eval_type),
@@ -4377,7 +4576,8 @@ class MakeWB(ExcelFunctions):
         self.write_cells(sheet, ["B3", "CM43"], self.EVAL_TEMPLATE)
         self.save_wb()
 
-    def make_eval_sheets(self):
+    def make_eval_sheets(self) -> None:
+        """Create and populate one DCF detail sheet per Evaluation instance."""
         count = 1
         for evalu in self.eval:
             sheet_name = "{}_{}_DCF".format(evalu.data.ticker, evalu.eval_type)
@@ -4387,7 +4587,8 @@ class MakeWB(ExcelFunctions):
             self.style_eval(self.eval_sheet)
             count += 1
 
-    def style_summary(self):
+    def style_summary(self) -> None:
+        """Apply all formatting (merges, types, fonts, borders, colors) to the summary sheet."""
         # Set cells to proper data types
         merge_cells = ["B3:E4", "B8:K18", "B7:H7", "B26:D26", "E26:K26"]
         self.merge_center(self.summary_sheet, merge_cells)
@@ -4454,7 +4655,8 @@ class MakeWB(ExcelFunctions):
 
         self.save_wb()
 
-    def style_inputs(self):
+    def style_inputs(self) -> None:
+        """Apply all formatting (merges, types, fonts, borders, colors) to the model assumptions sheet."""
         # Set cells to proper data types
         self.input_sheet.merge_cells("B3:C4")
         percent_cells = [
@@ -4561,7 +4763,13 @@ class MakeWB(ExcelFunctions):
 
         self.save_wb()
 
-    def style_eval(self, sheet):
+    def style_eval(self, sheet: Worksheet) -> None:
+        """
+        Apply all formatting (types, column widths, fonts, borders, colors) to a DCF detail sheet.
+
+        Args:
+            sheet (Worksheet): The DCF detail worksheet to format.
+        """
         sheet.merge_cells("B3:C4")
 
         # Set cells to proper data types
