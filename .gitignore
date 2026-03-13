@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local database
+local_db/*.db
+
+# IDE / editor artifacts
+.vs/
+.vscode/
+*.suo
+*.user
+
+# Untracked assets
+logos/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
