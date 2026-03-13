@@ -1,33 +1,68 @@
 #! python3
-# controller.py -  handles interactions between user and backend by storing users input as python dictionaries in
-# an SQL database
+"""
+db.py - SQLite database handler for AutoValu.
+
+Caches search queries, company profiles, and completed evaluations locally to
+reduce redundant API calls across sessions.
+
+Classes:
+    DBHandler: Manages the SQLite connection and all CRUD operations.
+
+Tables:
+    autovalu_data: Stores full evaluation records keyed by timestamp.
+    autovalu_searches: Caches autocomplete results keyed by search query string.
+    autovalu_profiles: Caches company profiles keyed by Morningstar security ID.
+"""
 
 import logging
+import sqlite3
+import json
+import os
+from typing import Optional
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-import sqlite3
-import json
-import os
-
 
 class DBHandler:
-    def __init__(self):
+    """Manages the local SQLite database connection and all CRUD operations.
+
+    Attributes:
+        conn (sqlite3.Connection): The active database connection.
+        c (sqlite3.Cursor): Cursor used for all query execution.
+        time (str | None): Timestamp of the most recently written evaluation record.
+
+    Methods:
+        __init__: Open (or create) the SQLite database and initialize tables.
+        make_tables: Create application tables if they do not already exist.
+        make_data_inst: Insert a completed evaluation record into autovalu_data.
+        make_search_inst: Cache autocomplete results for a query string.
+        make_profile_inst: Cache a company profile by security ID.
+        all_past_inst: Retrieve timestamps and stock IDs for all stored evaluations.
+        load_searches: Retrieve cached autocomplete results by query string.
+        load_profile: Retrieve a cached company profile by security ID.
+        load_data: Retrieve a full evaluation record by timestamp.
+        get_time: Return the current local datetime as a formatted string (static).
+    """
+
+    def __init__(self) -> None:
+        """Open (or create) the local SQLite database and initialize all tables.
+
+        Raises:
+            sqlite3.OperationalError: If the database file path is not accessible.
+        """
         logging.debug("initiating DBHandler connection")
-        path = os.path.join(
-            os.sep, "runnable_scripts", "Applications", "AutoValu", "local_db", "autovalu.db"
-        )
+        path = os.path.join(os.getcwd(), "local_db", "autovalu.db")
         self.conn = sqlite3.connect(path)
         self.c = self.conn.cursor()
-        self.time = None
+        self.time: Optional[str] = None
 
         # Initialize data base and current instance
         self.make_tables()
 
-    # creates tables in database
-    def make_tables(self):
+    def make_tables(self) -> None:
+        """Create the three application tables if they do not already exist."""
         try:
             self.c.execute(
                 "CREATE TABLE autovalu_data (date_time varchar(3), stock_id json, company_data json, inputs json)"
@@ -44,7 +79,14 @@ class DBHandler:
             pass
 
     ###   DB Row Generators   ###
-    def make_data_inst(self, stock, data, inputs):
+    def make_data_inst(self, stock: dict, data: dict, inputs: dict) -> None:
+        """Insert a completed evaluation record into autovalu_data.
+
+        Args:
+            stock (dict): Company identifier fields (ticker, mic, securityId, etc.).
+            data (dict): Raw API data object returned by APIData.data_object().
+            inputs (dict): User-supplied DCF model parameters.
+        """
         self.time = self.get_time()
         with self.conn:
             self.c.execute(
@@ -58,7 +100,13 @@ class DBHandler:
             )
         logging.info("data for {} added to database".format(stock["ticker"]))
 
-    def make_search_inst(self, query, search_results):
+    def make_search_inst(self, query: str, search_results: list) -> None:
+        """Cache autocomplete search results for a given query string.
+
+        Args:
+            query (str): The search text submitted by the user.
+            search_results (list): List of company result dicts returned by the API.
+        """
         with self.conn:
             self.c.execute(
                 "INSERT INTO autovalu_searches VALUES (:query, :results)",
@@ -66,7 +114,13 @@ class DBHandler:
             )
         logging.info("search results for {} added to database".format(query))
 
-    def make_profile_inst(self, sec_id, profile):
+    def make_profile_inst(self, sec_id: str, profile: dict) -> None:
+        """Cache a company profile keyed by its Morningstar security ID.
+
+        Args:
+            sec_id (str): Morningstar security identifier.
+            profile (dict): Company profile dict returned by the API.
+        """
         with self.conn:
             self.c.execute(
                 "INSERT INTO autovalu_profiles VALUES (:sec_id, :profile)",
@@ -75,7 +129,13 @@ class DBHandler:
         logging.info("profile for {} added to database".format(sec_id))
 
     ###   DB Loaders   ###
-    def all_past_inst(self):
+    def all_past_inst(self) -> list[tuple[str, dict]]:
+        """Retrieve the timestamp and stock identifier for every stored evaluation.
+
+        Returns:
+            list[tuple[str, dict]]: List of (timestamp, stock_dict) pairs ordered
+                                    by insertion sequence.
+        """
         with self.conn:
             self.c.execute("SELECT date_time, stock_id FROM autovalu_data")
             history = self.c.fetchall()
@@ -85,7 +145,15 @@ class DBHandler:
         logging.info("past instances accessed")
         return results
 
-    def load_searches(self, query):
+    def load_searches(self, query: str) -> Optional[list]:
+        """Retrieve cached autocomplete results for a query string.
+
+        Args:
+            query (str): The search text to look up.
+
+        Returns:
+            list | None: Cached results list, or None if the query is not in the database.
+        """
         with self.conn:
             try:
                 self.c.execute(
@@ -99,7 +167,15 @@ class DBHandler:
                 logging.info("no searches from query {} found in db".format(query))
                 return None
 
-    def load_profile(self, sec_id):
+    def load_profile(self, sec_id: str) -> Optional[dict]:
+        """Retrieve a cached company profile by security ID.
+
+        Args:
+            sec_id (str): Morningstar security identifier.
+
+        Returns:
+            dict | None: Cached profile dict, or None if not found.
+        """
         with self.conn:
             try:
                 self.c.execute(
@@ -113,7 +189,17 @@ class DBHandler:
                 logging.info("no profiles from id {} found in db".format(sec_id))
                 return None
 
-    def load_data(self, time):
+    def load_data(self, time: Optional[str]) -> Optional[dict]:
+        """Retrieve a full evaluation record by its timestamp.
+
+        Args:
+            time (str | None): Timestamp string as produced by get_time(), or None
+                               when no prior evaluation has been selected.
+
+        Returns:
+            dict | None: Dictionary with 'date_time', 'stock_id', 'company_data', and
+                         'inputs' keys if a matching record exists, otherwise None.
+        """
         with self.conn:
             self.c.execute(
                 "SELECT * FROM autovalu_data WHERE date_time = :time", {"time": time}
@@ -132,7 +218,12 @@ class DBHandler:
         return result_dictionary
 
     @staticmethod
-    def get_time():
+    def get_time() -> str:
+        """Return the current local date and time as a formatted string.
+
+        Returns:
+            str: Datetime string formatted as '%D, %H:%M %S' (e.g. '03/13/26, 14:05 22').
+        """
         import datetime
 
         time = datetime.datetime.now()
