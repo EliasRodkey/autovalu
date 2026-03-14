@@ -141,6 +141,9 @@ def build_fundamentals(income, balance, cashflow):
         }
         fundamentals.append(year_dict)
 
+    # Drop years where revenue is 0 — yfinance sometimes returns an incomplete oldest year
+    fundamentals = [yr for yr in fundamentals if yr["incomeStatement"]["revenue"] != 0]
+
     # Pad to exactly 5 years — eff_tax_rates() always iterates range(5)
     while len(fundamentals) < 5:
         fundamentals.insert(0, copy.deepcopy(fundamentals[0]))
@@ -252,6 +255,16 @@ def main():
     # --- Transform -----------------------------------------------------------
     print("Transforming to app format...")
     fundamentals = build_fundamentals(income, balance, cashflow)
+
+    # Sanity check — non-zero values here confirm yfinance field names matched correctly.
+    # If you see all zeros, the field names in build_fundamentals() need updating.
+    print("  Fundamentals sanity check (should be non-zero for Apple):")
+    for i, yr in enumerate(fundamentals):
+        ebit = yr["incomeStatement"]["incomeBeforeTaxes"]
+        tax  = yr["incomeStatement"]["provisionOrBenefitForIncomeTaxes"]
+        rev  = yr["incomeStatement"]["revenue"]
+        print(f"    Year {i} ({yr['endDate']}): revenue={rev:,}  pretaxIncome={ebit:,}  taxes={tax:,}")
+
     stock_data   = build_price_series(aapl_hist)
     nasdaq_data  = build_price_series(ixic_hist)
     profile      = build_profile(info)

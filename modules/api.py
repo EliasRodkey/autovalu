@@ -656,7 +656,7 @@ class DataValues:
         """
         tax_rate = []
         for i in range(5):
-            tax_rate.append(self.taxes[i] / self.ebit[i])
+            tax_rate.append(self.taxes[i] / self.ebit[i] if self.ebit[i] != 0 else 0.0)
         return tax_rate
 
     def calc_covariance(self, array1: list, array2: list) -> float:
