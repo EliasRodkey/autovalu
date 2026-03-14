@@ -445,7 +445,7 @@ class InputPage(QtWidgets.QWidget):
         self.nwc_label.setFont(self.STYLE.body_font)
         self.nwc_label.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.nwc_label.setAlignment(
-            QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft
+            QtCore.Qt.AlignTop | QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft
         )
         self.nwc_label.setWordWrap(True)
         self.nwc_label.setObjectName("nwc_label")
@@ -480,7 +480,7 @@ class InputPage(QtWidgets.QWidget):
         self.proj_years_label.setFont(self.STYLE.body_font)
         self.proj_years_label.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.proj_years_label.setAlignment(
-            QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft
+            QtCore.Qt.AlignTop | QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft
         )
         self.proj_years_label.setWordWrap(True)
         self.proj_years_label.setObjectName("proj_years_label")
@@ -512,7 +512,7 @@ class InputPage(QtWidgets.QWidget):
             "background-color: rgb(255, 255, 255);"
         )
         self.terminal_growth_label.setAlignment(
-            QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft
+            QtCore.Qt.AlignTop | QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft
         )
         self.terminal_growth_label.setWordWrap(True)
         self.terminal_growth_label.setObjectName("terminal_growth_label")
@@ -542,7 +542,7 @@ class InputPage(QtWidgets.QWidget):
         self.risk_free_rate_label.setFont(self.STYLE.body_font)
         self.risk_free_rate_label.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.risk_free_rate_label.setAlignment(
-            QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft
+            QtCore.Qt.AlignTop | QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft
         )
         self.risk_free_rate_label.setWordWrap(True)
         self.risk_free_rate_label.setObjectName("risk_free_rate_label")
@@ -571,7 +571,7 @@ class InputPage(QtWidgets.QWidget):
         self.market_return_label.setFont(self.STYLE.body_font)
         self.market_return_label.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.market_return_label.setAlignment(
-            QtCore.Qt.AlignBottom | QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft
+            QtCore.Qt.AlignTop | QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft
         )
         self.market_return_label.setWordWrap(True)
         self.market_return_label.setObjectName("market_return_label")
