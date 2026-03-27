@@ -9,7 +9,9 @@ for deeper analysis.
 This was built as an early personal project to learn Python application
 development and end-to-end: API integration, local data persistence, financial
 modelling, GUI design, and file export.
-This porject applis concepts I learned in collegiate finance classes
+This project applies concepts I learned in collegiate finance classes.
+
+**Important Note**: The API used in this project is no longer supported, for demonstration purposes, the database has been seeded with values that will allow the generation of a working DCF spreadsheet and valuation.
 
 ---
 
